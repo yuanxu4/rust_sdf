@@ -2,15 +2,15 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 struct Die {
-    chl_id: usize,
-    die_id: usize,
-    num_blocks: usize,
+    chl_id: i32,
+    die_id: i32,
+    num_blocks: i32,
     io_thread: thread::JoinHandle<()>,
-    req_queue: Arc<Mutex<Vec<Request>>>,
-    completion_queue: Arc<Mutex<Vec<Request>>>,
+    req_queue: Arc<Mutex<VecDeque<Request>>>,
+    completion_queue: Arc<Mutex<VecDeque<Request>>>,
     free_block_list: Vec<PPA>,
     open_block: Option<PPA>,
-    open_block_write_ptr: usize,
+    open_block_write_ptr: i32,
 }
 
 impl Die {
