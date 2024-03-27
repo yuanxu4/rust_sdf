@@ -1,4 +1,5 @@
-use std::os::raw::{c_char, c_int, c_uint};
+use sdf;
 
-static mut BUF: [c_char; ARRAY_SIZE] = [c_char; ARRAY_SIZE];
-static mut BUF: [c_char; ARRAY_SIZE] = [c_char; ARRAY_SIZE];
+static mut g_writebuf: [c_char; sdf::BLK_SZ] = [0; ARRAY_SIZE];
+static mut g_metabuf: [c_char; sdf::BLK_SZ_META] = [0; ARRAY_SIZE];
+

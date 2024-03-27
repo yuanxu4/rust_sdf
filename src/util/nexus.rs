@@ -1,13 +1,25 @@
 use crate::util::cfg_1TB;
 
 pub const NEXUS_IOCTL_PPA_SYNC: u32 = (0x80000000 | 0x40000000) | ((std::mem::size_of::<NvmePpaCommand>() as u32 & 0x1fff) << 16) | (('N' as u32) << 8) | (0x40);
+pub const NEXUS_IOCTL_RD_REG:u32    = ((2_u32 | 1_u32) << 30) | (('N' as u32) << (8))| (0x80_u32 << 0)| ((std::mem::size_of::<NvmeReadMemory>() as u32) << 16);
 
 pub const CH_INC: u16 =  0;
 pub const EP_INC: u16 =  1;
 pub const PL_INC: u16 =  2;
 pub const ADDR_FIELDS_SHIFT_CH: u16 = 0; 
 pub const ADDR_FIELDS_SHIFT_EP: u16 = cfg_1TB::CH_BITS;
-pub const NEXUS_DEV: &str = "/dev/nexus";
+pub const NEXUS_DEV: &str = "/dev/nexus0";
+
+const META_SIZE: u32 = 16;
+const META_RAWSIZE: u32 = 256 + 48; // 304
+const PAGE_SIZE: u32 = 0x1000;
+const BLOCK_SIZE: u32 = 0x1000;
+const CQE_SIZE: u32 = 16;
+const SQE_SIZE: u32 = 64;
+const MAX_Q_DEPTH: u32 = 10240;
+
+const GOOD_PPA: u32 =  1;
+const BAD_PPA: u32 =  0;
 
 #[repr(C)] 
 pub struct NvmePpaCommand {
@@ -26,6 +38,20 @@ pub struct NvmePpaCommand {
     pub reftag:     u32,    
     pub apptag:     u16,    
     pub appmask:    u16,   
+}
+
+#[repr(C)] 
+pub struct RdmemStru {
+    pub mem_addr: u32,
+    pub length: u32,
+    pub pdata: *mut u32, 
+}
+
+#[repr(C)] 
+pub struct NvmeReadMemory {
+    pub mem_addr: u32,
+    pub length: u32,
+    pub pdata: *mut u32, 
 }
 
 #[repr(u8)]
