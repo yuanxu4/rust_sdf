@@ -6,6 +6,22 @@ pub const LN_BITS:u16 = 2;
 pub const PG_BITS:u16 = 8;
 pub const BL_BITS:u16 = 1;
 
+pub const LUN_NUM:u32   = (1 << LN_BITS);
+pub const CH_NUM:u32    = (1 << CH_BITS);
+pub const PL_NUM:u32    = (1 << PL_BITS);
+pub const EP_NUM:u32    = (1 << EP_BITS);
+pub const BL_BITS_NUM:u32 = (32 - CH_BITS - EP_BITS - PL_BITS - LN_BITS - PG_BITS);
+pub const SECTORS_PER_CELL:u32 = (1 << (PL_BITS + EP_BITS));  // 4x4 = 16 or 2x4 = 8
+
+
+pub const CFG_NAND_CHANNEL_NUM:u32 = 16;
+pub const CFG_NAND_LUN_NUM:u32 = 4;
+pub const CFG_NAND_BLOCK_NUM:u32 = 1069;
+pub const CFG_NAND_PAGE_NUM:u32 = 256;
+pub const CFG_NAND_PLANE_NUM:u32 = 4;
+pub const CFG_NAND_PAGE_SIZE:u32 = 16384;
+pub const CFG_NAND_PAGE_SPARE:u32 = 1260;
+pub const CFG_NAND_EP_SIZE:u32 = 4096;
 
 
 pub const NVME_QUART_PLANE 	:u16   	= PL_BITS << 0;
@@ -29,5 +45,6 @@ pub const NVME_AES_KEYC 	:u16	= 12 << 2;
 pub const NVME_AES_KEYD 	:u16	= 13 << 2;
 pub const NVME_AES_KEYE 	:u16	= 14 << 2;
 pub const NVME_AES_KEYF 	:u16	= 15 << 2;
+
 
 
