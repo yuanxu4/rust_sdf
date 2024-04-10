@@ -10,16 +10,16 @@ pub const ADDR_FIELDS_SHIFT_CH: u16 = 0;
 pub const ADDR_FIELDS_SHIFT_EP: u16 = cfg_1TB::CH_BITS;
 pub const NEXUS_DEV: &str = "/dev/nexus0";
 
-const META_SIZE: u32 = 16;
-const META_RAWSIZE: u32 = 256 + 48; // 304
-const PAGE_SIZE: u32 = 0x1000;
-const BLOCK_SIZE: u32 = 0x1000;
-const CQE_SIZE: u32 = 16;
-const SQE_SIZE: u32 = 64;
-const MAX_Q_DEPTH: u32 = 10240;
+pub const META_SIZE: u32 = 16;
+pub const META_RAWSIZE: u32 = 256 + 48; // 304
+pub const PAGE_SIZE: u32 = 0x1000;
+pub const BLOCK_SIZE: u32 = 0x1000;
+pub const CQE_SIZE: u32 = 16;
+pub const SQE_SIZE: u32 = 64;
+pub const MAX_Q_DEPTH: u32 = 10240;
 
-const GOOD_PPA: u32 =  1;
-const BAD_PPA: u32 =  0;
+pub const GOOD_PPA: u32 =  1;
+pub const BAD_PPA: u32 =  0;
 
 #[repr(C)] 
 pub struct NvmePpaCommand {

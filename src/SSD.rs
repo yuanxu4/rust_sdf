@@ -1,117 +1,141 @@
 use std::collections::HashMap;
 use std::vec::Vec;
+use crate::sdf;
+use crate::channel;
+use crate::die;
+use crate::request;
 
-const TOTAL_CHANNELS: u32 = 16;
-
-struct SSD {
-    channels: HashMap<i32, Channel>,
-    dies: Vec<Die>,
+pub struct SSD<'a> {
+    channels: HashMap<u32, channel::Channel<'a>>,
+    dies: Vec<&'a die::Die<'a>>,
 }
 
-impl SSD {
-    fn new(num_chls: u32, num_dies_per_chl: u32, num_blocks_per_die: u32, num_vssds: u32) -> Self {
+impl<'a> SSD<'a> {
+    pub fn new(num_chls: u32, num_dies_per_chl: u32, num_blocks_per_die: u32) -> Self {
         let mut channels = HashMap::new();
         let mut dies = Vec::new();
         let mut allocated_channels = 0;
 
-        for chl_id in 0..TOTAL_CHANNELS {
+        for chl_id in 0..sdf::TOTAL_CHANNELS {
             if allocated_channels >= num_chls {
                 break;
             }
-            if chl_id == 2 {
-                continue; // skip bad channel
-            }
-            let chl = Channel::new(chl_id, num_dies_per_chl, num_blocks_per_die);
-            channels.insert(chl_id, chl.clone());
-            let new_dies = chl.get_dies();
-            dies.extend(new_dies);
+            channels.insert(chl_id, channel::Channel::new(chl_id, num_dies_per_chl, num_blocks_per_die));
+            
             allocated_channels += 1;
         }
 
-        for chl in channels.values() {
+        SSD { 
+            channels, 
+            dies, 
+        }
+
+        //todo ini write buffer
+        // for i in 0..BLK_SZ {
+        //     ssd.g_writebuf[i] = 'x';
+        // }
+        // for i in 0..BLK_SZ_META {
+        //     ssd.g_metabuf[i] = 'm';
+        // }
+    }
+    pub fn get_dies(&'a mut self) {
+        for chl in self.channels.values(){
+            let new_dies: Vec<&'a die::Die<'a>> = chl.get_dies();
+            self.dies.extend(new_dies);
             chl.scan_free_blocks();
         }
+    }
 
-        let mut ssd = SSD { channels, dies };
+    pub fn with_num_chls(num_chls: u32) -> Self {
+        SSD::new(num_chls, 1, 1)
+    }
 
-        for i in 0..BLK_SZ {
-            ssd.g_writebuf[i] = 'x';
+    pub fn stop(&mut self) -> i32{
+        for i in 0..self.channels.len() as u32{
+            if let Some(chl) = self.channels.get_mut(&i) {
+                chl.stop();
+            } else {
+                println!("invalid die")
+            }
         }
-        for i in 0..BLK_SZ_META {
-            ssd.g_metabuf[i] = 'm';
+        0
+    }
+
+    pub fn handle_request(&mut self, req: &request::Request) -> i32 {
+        match req.op {
+            sdf::READ_OP => {
+                println!("handling read request");
+                let page_reqs = req.breakdown_into_pages();
+                //todo: request ownership
+                for page_req in &page_reqs {
+                    self.read_page(page_req);
+                }
+                for page_req in &page_reqs {
+                    self.wait_for(page_req);
+                }
+                0
+            }
+            sdf::WRITE_OP => {
+                println!("handling write request");
+                let page_reqs = req.breakdown_into_pages();
+                //TODO: sort dies by their queue length
+                // alloc ppas from dies
+                let mut it = self.dies.iter_mut();
+                for page_req in &page_reqs {
+                    if let Some((&mut next_die)) = it.next() {
+                        let ppa = next_die.alloc_ppa();
+                        println!("lpa: {}, ppa: {}", page_req.lpa, ppa.addr());
+                        page_req.ppa = ppa;
+                        self.write_page(page_req);
+                    } else {
+                        println!("no valid die")
+                    }
+                }
+                for page_req in &page_reqs {
+                    self.wait_for(page_req);
+                }
+                0
+            }
+            sdf::END_OP => self.stop(),
+            _ => -1,
         }
-
-        ssd
     }
 
-    fn with_num_chls(num_chls: usize) -> Self {
-        SSD::new(num_chls, 1, 1, 1)
+    pub fn write_page(&mut self, req: &request::Request) -> i32 {
+        assert_eq!(req.size, sdf::PAGE_SZ);
+        if let Some(chl) = self.channels.get_mut(&req.ppa.chl) {
+            chl.write_page(req)
+        } else {
+            println!("invalid die");
+            -1
+        }
     }
 
-    fn stop(&self) {
-        // Implement SSD stopping logic
+    pub fn read_page(&mut self, req: &request::Request) -> i32 {
+        assert_eq!(req.size, sdf::PAGE_SZ);
+        if let Some(chl) = self.channels.get_mut(&req.ppa.chl) {
+            chl.write_page(req)
+        } else {
+            println!("invalid die");
+            -1
+        }
     }
 
-    fn handle_request(&self, req: &Request) -> i32 {
-        // Implement handle_request logic
-        0
-    }
-
-    fn write_page(&self, req: &Request) -> i32 {
-        // Implement write_page logic
-        0
-    }
-
-    fn read_page(&self, req: &Request) -> i32 {
-        // Implement read_page logic
-        0
-    }
-
-    fn wait_for(&self, req: &Request) -> i32 {
-        // Implement wait_for logic
-        0
+    pub fn wait_for(&mut self, req: &request::Request) -> i32 {
+        assert_eq!(req.size, sdf::PAGE_SZ);
+        if let Some(chl) = self.channels.get_mut(&req.ppa.chl) {
+            chl.write_page(req)
+        } else {
+            println!("invalid die");
+            -1
+        }
     }
 }
-
-impl Drop for SSD {
+// todo
+impl<'a> Drop for SSD<'a> {
     fn drop(&mut self) {
         self.stop();
         self.channels.clear();
     }
 }
 
-struct Channel {
-    // Define Channel struct fields here
-}
-
-impl Channel {
-    fn new(chl_id: usize, num_dies_per_chl: usize, num_blocks_per_die: usize) -> Self {
-        // Implement Channel constructor logic
-        Channel {}
-    }
-
-    fn get_dies(&self) -> Vec<Die> {
-        // Implement get_dies logic
-        Vec::new()
-    }
-
-    fn scan_free_blocks(&self) {
-        // Implement scan_free_blocks logic
-    }
-}
-
-struct Die {
-    // Define Die struct fields here
-}
-
-struct Request {
-    // Define Request struct fields here
-}
-
-const BLK_SZ: usize = 100; // Assuming this value
-const BLK_SZ_META: usize = 50; // Assuming this value
-
-lazy_static! {
-    static ref G_WRITEBUF: [char; BLK_SZ] = ['x'; BLK_SZ];
-    static ref G_METABUF: [char; BLK_SZ_META] = ['m'; BLK_SZ_META];
-}

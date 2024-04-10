@@ -1,5 +1,75 @@
-use sdf;
+use crate::sdf;
+use crate::ppa;
+use std::os::raw::c_char;
 
-static mut g_writebuf: [c_char; sdf::BLK_SZ] = [0; ARRAY_SIZE];
-static mut g_metabuf: [c_char; sdf::BLK_SZ_META] = [0; ARRAY_SIZE];
 
+pub const READ_OP:i32 = 0;
+pub const WRITE_OP:i32 = 1;
+pub const END_OP:i32 = -1;
+#[derive(Clone)]
+pub struct Request {
+    pub id: u32,
+    pub lpa: u32,
+    pub ppa: ppa::PPA,
+    pub size: u32,
+    pub ret: i32,
+    pub op: i32,
+    pub buf: Option<Vec<u8>>,
+    pub metabuf: Option<Vec<u8>>,
+}
+
+//TODO
+impl Request {
+    pub fn new(id: u32, offset: u32, size: u32, op: i32) -> Self {
+        Request {
+            id,
+            lpa: offset/sdf::PAGE_SZ,
+            ppa:ppa::PPA::new(0),
+            size,
+            ret: 0,
+            op,
+            buf:None,
+            metabuf:None,
+        }
+    }
+
+    pub fn new1(id: u32, lpa: u32, ppa: ppa::PPA, size: u32, op: i32) -> Self {
+        let (buf, metabuf) = match op {
+            WRITE_OP => (Some(vec!['x' as u8; sdf::BLK_SZ as usize]), Some(vec!['m' as u8; sdf::BLK_SZ_META as usize])),
+            READ_OP => (Some(vec![0; sdf::BLK_SZ as usize]), Some(vec![0; sdf::BLK_SZ_META as usize])),
+            END_OP => (None, None),
+            _ => panic!("Invalid OP"),
+        };
+        Request {
+            id,
+            lpa,
+            ppa,
+            size,
+            ret: 0,
+            op,
+            buf,
+            metabuf,
+        }
+    }
+
+    pub fn breakdown_into_pages(&self) -> Vec<Request> {
+        let mut pages = Vec::new();
+        for i in 0..(self.size / sdf::PAGE_SZ) {
+            let page = Request::new1(
+                self.id,
+                self.lpa + sdf::PAGE_SZ,
+                ppa::PPA::new2(
+                    self.ppa.chl,
+                    self.ppa.die,
+                    self.ppa.pl,
+                    self.ppa.blk,
+                    self.ppa.pg + i,
+                ),
+                sdf::PAGE_SZ,
+                self.op,
+            );
+            pages.push(page);
+        }
+        pages
+    }
+}
