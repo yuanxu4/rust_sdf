@@ -18,6 +18,9 @@ pub const CQE_SIZE: u32 = 16;
 pub const SQE_SIZE: u32 = 64;
 pub const MAX_Q_DEPTH: u32 = 10240;
 
+pub const CHANNEL_COUNT:u32 = 0x4098c;
+pub const MTDSZ:u32 = 0x2104;
+
 pub const GOOD_PPA: u32 =  1;
 pub const BAD_PPA: u32 =  0;
 

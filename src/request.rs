@@ -1,12 +1,15 @@
 use crate::sdf;
 use crate::ppa;
 use std::os::raw::c_char;
+use log::{info, warn, debug};
+use wd_log::log_debug_ln;
+use std::fmt;
 
 
 pub const READ_OP:i32 = 0;
 pub const WRITE_OP:i32 = 1;
 pub const END_OP:i32 = -1;
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Request {
     pub id: u32,
     pub lpa: u32,
@@ -53,7 +56,9 @@ impl Request {
     }
 
     pub fn breakdown_into_pages(&self) -> Vec<Request> {
+        
         let mut pages = Vec::new();
+        log_debug_ln!("Start break request{}", self);
         for i in 0..(self.size / sdf::PAGE_SZ) {
             let page = Request::new1(
                 self.id,
@@ -68,8 +73,25 @@ impl Request {
                 sdf::PAGE_SZ,
                 self.op,
             );
+            // log_debug_ln!("break to new reqeust { }", page);
             pages.push(page);
         }
         pages
     }
 }
+
+impl fmt::Display for Request {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.op == READ_OP {        
+            write!(f, "id: {}, lpa: {}, ppa: [{}], size: {}, ret: {}, op: READ_OP", 
+                self.id, self.lpa, self.ppa, self.size, self.ret)
+        } else if self.op == WRITE_OP{
+            write!(f, "id: {}, lpa: {}, ppa: [{}], size: {}, ret: {}, op: WRITE_OP", 
+                self.id, self.lpa, self.ppa, self.size, self.ret)
+        } else {
+            write!(f, "id: {}, lpa: {}, ppa: [{}], size: {}, ret: {}, op: END_OP", 
+                self.id, self.lpa, self.ppa, self.size, self.ret)
+        }
+    }
+}
+

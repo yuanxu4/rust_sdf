@@ -1,6 +1,6 @@
 use crate::util::cfg_1TB::*;
 use std::fmt;
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct PPA {
     pub chl: u32,
     pub die: u32,
