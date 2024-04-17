@@ -33,6 +33,12 @@ impl PPA {
         (self.pg << (CH_BITS + EP_BITS + PL_BITS + LN_BITS))
     }
 
+    pub fn is_valid(&self) -> bool{
+        return self.chl >= 0 && self.die >= 0 && self.pl >= 0 && self.blk >= 0 && self.pg >= 0;
+    }
+
+    
+
     pub fn to_string(&self) -> String {
         format!(
             "<Chl: {}, Die: {}, Pl: {}, Blk: {}, Pg: {}, PPA: {}>",

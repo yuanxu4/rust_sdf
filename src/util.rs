@@ -218,7 +218,7 @@ pub fn skip_maskchannel(ppa_addr: u32, channel_mask: u16) -> u32 {
 pub fn skip_badblk(ppa_addr: u32, badbin: &Vec<u16>) -> u32 {
     let mut status:u32 = nexus::GOOD_PPA;
     let ch:u16 =  (ppa_addr & 0x0000000f) as u16;
-    let lun:u16 = ((ppa_addr & 0x00000300) >> 4) as u16;
+    let lun:u16 = ((ppa_addr & 0x00000300) >> 8) as u16;
     let blk:u16 = ((ppa_addr & 0x7ffc0000) >> 18) as u16;
     let mark:u16 = 1 << ch;
     

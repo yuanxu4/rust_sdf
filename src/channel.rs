@@ -1,10 +1,9 @@
 use std::collections::HashMap;
+use wd_log::log_warn_ln;
+
 use crate::request;
 use crate::die;
 use std::sync::{Arc, Mutex};
-
-//??
-use std::marker::PhantomData;
 
 pub struct Channel{
     pub chl_id: u32,
@@ -45,7 +44,7 @@ impl Channel{
         if let Some(die) = self.dies.get_mut(&req.ppa.die) {
             die.lock().unwrap().write_page(req);
         } else {
-            println!("invalid die");
+            log_warn_ln!("invalid die");
         }
         0
     }
@@ -55,7 +54,7 @@ impl Channel{
         if let Some(die) = self.dies.get_mut(&req.ppa.die) {
             die.lock().unwrap().read_page(req);
         } else {
-            println!("invalid die");
+            log_warn_ln!("invalid die");
         }
         0
     }
@@ -65,7 +64,7 @@ impl Channel{
         if let Some(die) = self.dies.get_mut(&req.ppa.die) {
             die.lock().unwrap().wait_for(req);
         } else {
-            println!("invalid die")
+            log_warn_ln!("invalid die")
         }
         0
     }
@@ -75,7 +74,7 @@ impl Channel{
             if let Some(die) = self.dies.get_mut(&i) {
                 die.lock().unwrap().stop();
             } else {
-                println!("invalid die")
+                log_warn_ln!("invalid die")
             }
         }
         0

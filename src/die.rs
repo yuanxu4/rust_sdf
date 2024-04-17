@@ -33,7 +33,7 @@ pub struct Die {
     pub io_thread: Option<thread::JoinHandle<()>>,
     pub req_queue: Arc<Mutex<VecDeque<request::Request>>>,
     pub completion_queue: Arc<Mutex<VecDeque<request::Request>>>,
-    pub free_block_list: Vec<ppa::PPA>,
+    pub free_block_list: VecDeque<ppa::PPA>,
     pub open_block: Option<ppa::PPA>,
     pub open_block_write_ptr: u32,
 }
@@ -42,7 +42,7 @@ impl Die {
     pub fn new(chl_id: u32, die_id: u32, num_blocks: u32) -> Self {
         let req_queue:Arc<Mutex<VecDeque<request::Request>>> = Arc::new(Mutex::new(VecDeque::new()));
         let completion_queue:Arc<Mutex<VecDeque<request::Request>>> = Arc::new(Mutex::new(VecDeque::new()));
-        let free_block_list = Vec::new();
+        let free_block_list = VecDeque::new();
         let req_queue_clone = req_queue.clone();
         let completion_queue_clone = completion_queue.clone();
         let io_thread = Some(thread::Builder::new().name(format!("die thread,chl: {} die: {}", chl_id, die_id).to_string()).
@@ -62,7 +62,6 @@ impl Die {
     }
 
     pub fn scan_free_blocks(&mut self){
-        // Implement scan_free_blocks logic
         let devid:u32 = 0;
         let nsid:u32 = 1;
         let qid:u16 = 1;
@@ -90,14 +89,15 @@ impl Die {
                 if flag == util::nexus::BAD_PPA {
                     continue;
                 } else {
+                    log_debug_ln!("Chl: {}, Die: {}, Allocated: {}", self.chl_id, self.die_id, ppa.addr());
                     util::ersppa_sync(devid, nsid, ppa.addr(), qid, 0);
-                    self.free_block_list.push(ppa);
+                    self.free_block_list.push_back(ppa);
                     blocks_allocated += 1;
                 }
             }
         }
 
-        self.open_block = self.free_block_list.first().cloned();
+        self.open_block = self.free_block_list.pop_front();
         self.open_block_write_ptr = 0;
     }
     
@@ -117,7 +117,7 @@ impl Die {
         queue.push_front(req.clone());
         0
     }
-    // todo check why we need request in argument
+    // todo check why we need request in argument make use of that
     pub fn wait_for(&self, req: &request::Request) -> i32 {
         loop{
             let mut queue = self.completion_queue.lock().unwrap();
@@ -135,7 +135,7 @@ impl Die {
         if self.open_block_write_ptr < (sdf::PAGES_PER_BLK - 1) {
             self.open_block_write_ptr += 1;
         } else {
-            self.free_block_list.pop();
+            self.free_block_list.pop_front();
             assert!(self.free_block_list.len() > 0);
             self.open_block = Some(self.free_block_list[0]);
             self.open_block_write_ptr = 0;
@@ -151,16 +151,17 @@ impl Die {
             let mut queue = self.req_queue.lock().unwrap();
             queue.push_front(req);
         }
-        // let mut io_thread = thread::spawn(|| {});
-        // std::mem::swap(&mut self.io_thread, &mut io_thread);
-        // io_thread.join().expect("Failed to join IO thread");
         self.io_thread.take().expect("Called stop on non-running thread").join().expect("Could not join spawned thread");
         log_info_ln!("Stop die thread,chl id: {} die id: {} ", self.chl_id, self.die_id);
         0
     }
     //todo
-    pub fn get_free_block_list(&self) -> &Vec<ppa::PPA> {
+    pub fn get_free_block_list(&self) -> &VecDeque<ppa::PPA> {
         &self.free_block_list
+    }
+
+    pub fn has_free_blocks(&self) -> bool{
+        return self.free_block_list.len() > 0;
     }
 
     pub fn launch_io_thread(chl_id: u32, die_id: u32, req_queue: Arc<Mutex<VecDeque<request::Request>>>, completion_queue: Arc<Mutex<VecDeque<request::Request>>>) {
@@ -187,7 +188,7 @@ impl Die {
                         req.ret = util::read_data_ppa(0, 1, req.ppa.addr(), 1, 3, &req.buf, &req.metabuf);
                     }
                     sdf::END_OP => {
-                        log_info_ln!("die thread Recieve ENDOP");
+                        log_info_ln!("die thread Recieve END_OP");
                         return;
                     }
                     _ => {

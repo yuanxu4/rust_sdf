@@ -16,10 +16,11 @@ use wd_log::*;
 
 use workload::Workload;
 
+
 fn main() {
     set_level(wd_log::DEBUG);
-    let num_channels: u32 = 1;
-    let num_dies_per_chl: u32 = 1;
+    let num_channels: u32 = 15;
+    let num_dies_per_chl: u32 = 4;
     let num_blocks_per_die: u32 = 1;
     // let num_vssds: u32 = 1;
     let num_threads: i32 = 1;
@@ -30,11 +31,13 @@ fn main() {
     // Create a workload with SSD and number of threads
     log_info_ln!("Start Workload");
     let mut workload: workload::Workload = workload::Workload::new(ssd, num_threads);
-    workload.start_thread(0);
+    workload.start_all_thread();
+    // workload.start_thread(1);
     thread::sleep(Duration::from_millis(100));
     // Run the workload
     workload.run();
-    workload.stop_thread(0);
+    workload.stop_all_thread();
+    // workload.stop_thread(1);
     log_info_ln!("Workload End");
 }
 
