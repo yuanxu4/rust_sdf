@@ -60,13 +60,13 @@ impl Workload {
                 log_info_ln!("Start workload thread: {}", thread_id);
                 loop {
                     if let Some(req) = req_queue_clone.lock().unwrap().pop_back() {
-                        
-                        ssd_clone.lock().unwrap().handle_request(req.clone());
-                        completion_queue_clone.lock().unwrap().push_front(req.clone());
                         if req.op == sdf::END_OP {
                             log_info_ln!("Workload thread {} get END_OP", thread_id);
                             return;
                         }
+                        ssd_clone.lock().unwrap().handle_request(req.clone());
+                        completion_queue_clone.lock().unwrap().push_front(req.clone());
+                        
                     } else {
                         // println!("queue is empty")
                     }
@@ -78,12 +78,17 @@ impl Workload {
     }
 
     pub fn stop_all_thread(&mut self) {
+        self.stop_ssd_thread();
         for i in 0..self.num_threads {
-            self.stop_thread(i);
+            self.stop_workload_thread(i);
         }
     }
 
-    fn stop_thread(&mut self, thread_id: i32) -> i32{
+    fn stop_ssd_thread(&mut self){
+        let req = Arc::new(request::Request::new1(0, 0, ppa::PPA::new(0), 0, request::END_OP));
+        self.ssd.lock().unwrap().handle_request(req.clone());
+    }
+    fn stop_workload_thread(&mut self, thread_id: i32) -> i32{
         let req = Arc::new(request::Request::new1(0, 0, ppa::PPA::new(0), 0, request::END_OP));
         self.req_queues[thread_id as usize].lock().unwrap().push_front(req);
         self.threads[thread_id as usize].take().expect("Called stop on non-running thread").join().expect("Could not join spawned thread");
@@ -107,18 +112,14 @@ impl Workload {
                 let ret_req = queue.pop_back().unwrap();
                 let ret = ret_req.ret;
                 log_debug_ln!("workload completion queue get pop request {}", ret_req);
-                if ret_req.op == sdf::END_OP {
+                if ret_req.id == 3 {
                     break;
                 }
             }
         }
 
         let end_time = Instant::now();
-        println!(
-            "Time taken: {:?}",
-            end_time.duration_since(start_time)
-        );
-        println!("ret: {}", ret);
+        println!( "Time taken: {:?}", end_time.duration_since(start_time));
     }
 
     fn request_parsing(&mut self){ //tracefile: &str
@@ -127,7 +128,7 @@ impl Workload {
         reqs_new.push_back(Arc::new(request::Request::new(1, 0, sdf::PAGE_SZ * 4, sdf::WRITE_OP)));
         reqs_new.push_back(Arc::new(request::Request::new(2, 0, sdf::PAGE_SZ * 4, sdf::READ_OP)));
         reqs_new.push_back(Arc::new(request::Request::new(3, 0, sdf::PAGE_SZ * 4, sdf::WRITE_OP)));
-        reqs_new.push_back(Arc::new(request::Request::new(4, 0, sdf::PAGE_SZ * 4, sdf::END_OP)));
+        // reqs_new.push_back(Arc::new(request::Request::new(4, 0, sdf::PAGE_SZ * 4, sdf::END_OP)));
         self.reqs = reqs_new;
     }
     
