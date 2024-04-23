@@ -20,6 +20,7 @@ pub struct Request {
     pub buf: Option<Vec<u8>>,
     pub metabuf: Option<Vec<u8>>,
 }
+//TODO: change the Option to Box
 
 //TODO
 impl Request {

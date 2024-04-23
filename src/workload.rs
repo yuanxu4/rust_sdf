@@ -4,6 +4,8 @@ use std::sync::{Arc, Mutex};
 use std::collections::VecDeque;
 use std::time::Instant;
 use wd_log::*;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 use crate::ssd;
 use crate::ppa;
@@ -12,7 +14,7 @@ use crate::request::{self, END_OP};
 
 //delete all the reference 
 pub struct Workload {
-    ssd: Arc<Mutex<ssd::SSD>>,
+    ssd_queue: Arc<Mutex<VecDeque<Arc<request::Request>>>>,
     num_threads: i32,
     threads: Vec<Option<thread::JoinHandle<()>>>,
     reqs: VecDeque<Arc<request::Request>>,
@@ -21,7 +23,7 @@ pub struct Workload {
 }
 
 impl Workload {
-    pub fn new(ssd: Arc<Mutex<ssd::SSD>>, num_threads: i32) -> Self {
+    pub fn new(ssd_queue: Arc<Mutex<VecDeque<Arc<request::Request>>>>, num_threads: i32) -> Self {
         let mut threads = Vec::new();
         let mut req_queues = Vec::new();
         let mut completion_queue = Arc::new(Mutex::new(VecDeque::<Arc<request::Request>>::new())); 
@@ -35,7 +37,7 @@ impl Workload {
         }
 
         Workload {
-            ssd,
+            ssd_queue,
             num_threads,
             threads,
             reqs,
@@ -52,7 +54,7 @@ impl Workload {
         // todo: more clever check 
         let req_queue_clone:Arc<Mutex<VecDeque<Arc<request::Request>>>> = self.req_queues[thread_id as usize].clone();
         let completion_queue_clone:Arc<Mutex<VecDeque<Arc<request::Request>>>> = self.completion_queue.clone();
-        let ssd_clone = self.ssd.clone();
+        let ssd_queue_clone = self.ssd_queue.clone();
         if (thread_id > self.num_threads) {
             log_warn_ln!("invalid thread ID");
         } else {
@@ -64,7 +66,7 @@ impl Workload {
                             log_info_ln!("Workload thread {} get END_OP", thread_id);
                             return;
                         }
-                        ssd_clone.lock().unwrap().handle_request(req.clone());
+                        ssd_queue_clone.lock().unwrap().push_front(req.clone());
                         completion_queue_clone.lock().unwrap().push_front(req.clone());
                         
                     } else {
@@ -86,7 +88,7 @@ impl Workload {
 
     fn stop_ssd_thread(&mut self){
         let req = Arc::new(request::Request::new1(0, 0, ppa::PPA::new(0), 0, request::END_OP));
-        self.ssd.lock().unwrap().handle_request(req.clone());
+        self.ssd_queue.lock().unwrap().push_front(req.clone());
     }
     fn stop_workload_thread(&mut self, thread_id: i32) -> i32{
         let req = Arc::new(request::Request::new1(0, 0, ppa::PPA::new(0), 0, request::END_OP));

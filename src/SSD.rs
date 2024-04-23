@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::thread::JoinHandle;
 use std::vec::Vec;
 use crate::sdf;
 use crate::channel;
@@ -6,11 +7,15 @@ use crate::die;
 use crate::request;
 use std::sync::{Arc, Mutex};
 use wd_log::*;
+use std::collections::VecDeque;
+use std::thread::{self, spawn};
+
 
 
 pub struct SSD{
     channels: HashMap<u32, channel::Channel>,
     dies: Vec<Arc<Mutex<die::Die>>>,
+    pub ssd_queue: Arc<Mutex<VecDeque<Arc<request::Request>>>>,
 }
 
 impl SSD {
@@ -18,6 +23,7 @@ impl SSD {
         let mut channels = HashMap::new();
         let mut dies = Vec::new();
         let mut allocated_channels = 0;
+        let mut ssd_queue = Arc::new(Mutex::new(VecDeque::<Arc<request::Request>>::new())); 
 
         for chl_id in 0..sdf::TOTAL_CHANNELS {
             if allocated_channels >= num_chls {
@@ -31,6 +37,7 @@ impl SSD {
         SSD { 
             channels, 
             dies, 
+            ssd_queue,
         }
 
         //todo ini write buffer
@@ -41,6 +48,30 @@ impl SSD {
         //     ssd.g_metabuf[i] = 'm';
         // }
     }
+
+    pub fn start_ssd_thread(mut self) -> Option<JoinHandle<()>>{
+        // todo: more clever check 
+        let ssd_queue_clone = self.ssd_queue.clone();
+        
+        let ssd_thread_handle = Some(thread::Builder::new().name(format!("ssd thread 1").to_string()).spawn(move || {
+            log_info_ln!("Start ssd thread 1");
+            loop {
+                if let Some(req) = ssd_queue_clone.lock().unwrap().pop_back() {
+                    self.handle_request(req.clone());                    
+                    if req.op == sdf::END_OP {
+                        log_info_ln!("ssd thread 1 get END_OP");
+                        return;
+                    }
+                } else {
+                    // println!("queue is empty")
+                }
+            }
+            log_warn_ln!("ssd thread 1 go to wrong line");
+        }).unwrap());    
+        ssd_thread_handle    
+    }
+    
+
     pub fn get_dies(&mut self) {
         for chl in self.channels.values_mut(){
             let new_dies: Vec<Arc<Mutex<die::Die>>> = chl.get_dies();
@@ -61,6 +92,7 @@ impl SSD {
                 println!("invalid die")
             }
         }
+
         0
     }
 
@@ -149,6 +181,10 @@ impl SSD {
             -1
         }
     }
+}
+
+pub fn stop_ssd_thread(mut ssd_thread_handle: Option<JoinHandle<()>>){
+    ssd_thread_handle.take().expect("Called stop on non-running thread").join().expect("Could not join spawned thread");
 }
 // todo
 // impl Drop for SSD {
