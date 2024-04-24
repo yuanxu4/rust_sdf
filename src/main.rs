@@ -26,7 +26,7 @@ fn main() {
     let num_dies_per_chl: u32 = 2;
     let num_blocks_per_die: u32 = 1;
     // let num_vssds: u32 = 1;
-    let num_threads: i32 = 1;
+    let num_threads: i32 = 2;
 
 
     log_info_ln!("Start create SSD");
@@ -35,7 +35,7 @@ fn main() {
     log_info_ln!("SSD created");    
     
     log_info_ln!("Start Workload");
-    let mut workload: workload::Workload = workload::Workload::new(ssd.ssd_queue.clone(), num_threads);
+    let mut workload: workload::Workload = workload::Workload::new(ssd.ssd_queue.clone(), ssd.completion_queue.clone(), num_threads);
     log_info_ln!("Start SSD Thread");
     let mut ssd_thread_handle = ssd.start_ssd_thread();
     log_info_ln!("Start Workload Thread");

@@ -23,10 +23,9 @@ pub struct Workload {
 }
 
 impl Workload {
-    pub fn new(ssd_queue: Arc<Mutex<VecDeque<Arc<request::Request>>>>, num_threads: i32) -> Self {
+    pub fn new(ssd_queue: Arc<Mutex<VecDeque<Arc<request::Request>>>>, completion_queue: Arc<Mutex<VecDeque<Arc<request::Request>>>>,num_threads: i32) -> Self {
         let mut threads = Vec::new();
         let mut req_queues = Vec::new();
-        let mut completion_queue = Arc::new(Mutex::new(VecDeque::<Arc<request::Request>>::new())); 
         let reqs = VecDeque::<Arc<request::Request>>::new();
 
         for thr_id in 0..num_threads {
@@ -53,8 +52,9 @@ impl Workload {
     fn start_thread(&mut self, thread_id: i32) {
         // todo: more clever check 
         let req_queue_clone:Arc<Mutex<VecDeque<Arc<request::Request>>>> = self.req_queues[thread_id as usize].clone();
-        let completion_queue_clone:Arc<Mutex<VecDeque<Arc<request::Request>>>> = self.completion_queue.clone();
         let ssd_queue_clone = self.ssd_queue.clone();
+
+
         if (thread_id > self.num_threads) {
             log_warn_ln!("invalid thread ID");
         } else {
@@ -66,9 +66,7 @@ impl Workload {
                             log_info_ln!("Workload thread {} get END_OP", thread_id);
                             return;
                         }
-                        ssd_queue_clone.lock().unwrap().push_front(req.clone());
-                        completion_queue_clone.lock().unwrap().push_front(req.clone());
-                        
+                        ssd_queue_clone.lock().unwrap().push_front(req.clone());                        
                     } else {
                         // println!("queue is empty")
                     }
@@ -109,12 +107,12 @@ impl Workload {
         let ret = 0;
         let start_time = Instant::now();
         loop{
-            let mut queue = self.completion_queue.lock().unwrap();
+            let mut queue = self.completion_queue.lock().unwrap();// todo change the thread safe queue into channel
             if queue.len() > 0 {
                 let ret_req = queue.pop_back().unwrap();
                 let ret = ret_req.ret;
                 log_debug_ln!("workload completion queue get pop request {}", ret_req);
-                if ret_req.id == 3 {
+                if ret_req.id == 5 {
                     break;
                 }
             }
@@ -128,8 +126,10 @@ impl Workload {
         // TODO: Parse the tracefile and create requests
         let mut reqs_new = VecDeque::<Arc<request::Request>>::new();  
         reqs_new.push_back(Arc::new(request::Request::new(1, 0, sdf::PAGE_SZ * 4, sdf::WRITE_OP)));
-        reqs_new.push_back(Arc::new(request::Request::new(2, 0, sdf::PAGE_SZ * 4, sdf::READ_OP)));
-        reqs_new.push_back(Arc::new(request::Request::new(3, 0, sdf::PAGE_SZ * 4, sdf::WRITE_OP)));
+        reqs_new.push_back(Arc::new(request::Request::new(2, 1000, sdf::PAGE_SZ * 4, sdf::READ_OP)));
+        reqs_new.push_back(Arc::new(request::Request::new(3, 4000, sdf::PAGE_SZ * 4, sdf::READ_OP)));
+        reqs_new.push_back(Arc::new(request::Request::new(4, 2000, sdf::PAGE_SZ * 4, sdf::WRITE_OP)));
+        reqs_new.push_back(Arc::new(request::Request::new(5, 3000, sdf::PAGE_SZ * 4, sdf::WRITE_OP)));
         // reqs_new.push_back(Arc::new(request::Request::new(4, 0, sdf::PAGE_SZ * 4, sdf::END_OP)));
         self.reqs = reqs_new;
     }

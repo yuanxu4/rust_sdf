@@ -16,6 +16,7 @@ pub struct SSD{
     channels: HashMap<u32, channel::Channel>,
     dies: Vec<Arc<Mutex<die::Die>>>,
     pub ssd_queue: Arc<Mutex<VecDeque<Arc<request::Request>>>>,
+    pub completion_queue: Arc<Mutex<VecDeque<Arc<request::Request>>>>,
 }
 
 impl SSD {
@@ -24,6 +25,7 @@ impl SSD {
         let mut dies = Vec::new();
         let mut allocated_channels = 0;
         let mut ssd_queue = Arc::new(Mutex::new(VecDeque::<Arc<request::Request>>::new())); 
+        let mut completion_queue = Arc::new(Mutex::new(VecDeque::<Arc<request::Request>>::new())); 
 
         for chl_id in 0..sdf::TOTAL_CHANNELS {
             if allocated_channels >= num_chls {
@@ -38,6 +40,7 @@ impl SSD {
             channels, 
             dies, 
             ssd_queue,
+            completion_queue,
         }
 
         //todo ini write buffer
@@ -52,6 +55,7 @@ impl SSD {
     pub fn start_ssd_thread(mut self) -> Option<JoinHandle<()>>{
         // todo: more clever check 
         let ssd_queue_clone = self.ssd_queue.clone();
+        let completion_queue_clone = self.completion_queue.clone();
         
         let ssd_thread_handle = Some(thread::Builder::new().name(format!("ssd thread 1").to_string()).spawn(move || {
             log_info_ln!("Start ssd thread 1");
@@ -62,6 +66,7 @@ impl SSD {
                         log_info_ln!("ssd thread 1 get END_OP");
                         return;
                     }
+                    completion_queue_clone.lock().unwrap().push_front(req.clone());
                 } else {
                     // println!("queue is empty")
                 }
